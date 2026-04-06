@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Réseau de Chaleur · Météo</title>
+<title>Météo</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Mono:wght@300;400;500;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -134,15 +134,15 @@ header {
 /* ── KPI ROW ── */
 .kpi-row {
   display:grid; 
-  /* 6 colonnes au total : La carte principale prend 2 col, les 4 autres 1 col chacune */
-  grid-template-columns: repeat(6, 1fr);
+  /* 5 colonnes de taille égale */
+  grid-template-columns: repeat(5, 1fr);
   gap:16px; margin-bottom:28px;
 }
 
 .kpi-card {
   background:var(--card); border:1px solid var(--border);
-  border-radius:14px; padding:22px 24px;
-  display:flex; flex-direction:column; gap:8px;
+  border-radius:14px; padding:22px 16px;
+  display:flex; flex-direction:column; align-items:center; text-align:center; gap:8px;
   position:relative; overflow:hidden; transition:border-color .3s;
 }
 
@@ -153,9 +153,8 @@ header {
   background:linear-gradient(90deg, var(--accent), transparent); opacity:.4;
 }
 
-/* Carte Température principale (plus large) */
+/* Carte Température principale */
 .kpi-card.main-temp {
-  grid-column: span 2;
   border-color: rgba(61,155,233,.3);
   background: linear-gradient(145deg, var(--card), #10151f);
 }
@@ -171,10 +170,11 @@ header {
 
 .kpi-val {
   font-family:'DM Serif Display', serif;
-  font-size:42px; line-height:1; color:var(--white);
+  font-size:34px; line-height:1; color:var(--white);
+  white-space: nowrap; /* Empêche le retour à la ligne */
 }
 
-.kpi-unit { font-size:18px; color:var(--muted); }
+.kpi-unit { font-size:16px; color:var(--muted); }
 
 .kpi-sub {
   font-family:'IBM Plex Mono', monospace;
@@ -216,7 +216,7 @@ header {
 .leg-bar   { width:12px; height:16px; border-radius:2px; opacity:.55; }
 
 .chart-pills {
-  display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;
+  display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; align-items:center;
 }
 
 .cpill {
@@ -227,6 +227,18 @@ header {
 .cpill span { color:var(--white); font-weight: 500; }
 .cpill.hl { border-color:rgba(232,98,26,.4); color:var(--heat); }
 .cpill.cl { border-color:rgba(91,184,245,.4); color:var(--cold); }
+
+button.cpill {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+button.cpill:hover {
+  background: var(--border);
+}
+button.cpill.active {
+  border-color: var(--green);
+  color: var(--green);
+}
 
 .chart-wrap {
   position:relative;
@@ -253,16 +265,13 @@ header {
 
 /* responsive */
 @media(max-width:1200px){
-  .kpi-row { grid-template-columns: repeat(4, 1fr); }
-  .kpi-card.main-temp { grid-column: span 4; }
+  .kpi-row { grid-template-columns: repeat(3, 1fr); }
 }
 @media(max-width:900px){
   .kpi-row { grid-template-columns: repeat(2, 1fr); }
-  .kpi-card.main-temp { grid-column: span 2; }
 }
 @media(max-width:600px){
   .kpi-row { grid-template-columns: 1fr; }
-  .kpi-card.main-temp { grid-column: span 1; }
   .chart-wrap { aspect-ratio: 4/3; }
 }
 </style>
@@ -308,7 +317,7 @@ header {
     <div class="kpi-row">
       <div class="kpi-card main-temp">
         <div class="kpi-lbl" style="color: var(--accent);">Température Actuelle</div>
-        <div class="kpi-val" id="giant-temp" style="font-size: 64px;">--<span style="font-size: 36px; color: var(--accent); margin-left: 6px;">°C</span></div>
+        <div class="kpi-val" id="giant-temp" style="font-size: 42px;">--<span style="font-size: 24px; color: var(--accent); margin-left: 6px;">°C</span></div>
         <div class="kpi-sub">Mise à jour en temps réel</div>
       </div>
 
@@ -342,7 +351,7 @@ header {
         </div>
         <div class="chart-legend">
           <div class="leg-item"><div class="leg-line" style="background:var(--heat)"></div> Temp. mesurée</div>
-          <div class="leg-item"><div class="leg-line" style="background:var(--green);opacity:.7"></div> Prévision</div>
+          <div class="leg-item"><div class="leg-line" style="background:var(--green);opacity:.7"></div> Prévision future</div>
           <div class="leg-item"><div class="leg-bar"  style="background:var(--rain)"></div> Précip.</div>
         </div>
       </div>
@@ -350,8 +359,8 @@ header {
         <div class="cpill hl">Max 48h : <span id="ch-max">--</span>°C</div>
         <div class="cpill cl">Min 48h : <span id="ch-min">--</span>°C</div>
         <div class="cpill">Moy. : <span id="ch-avg">--</span>°C</div>
-        <div class="cpill">Amplitude : <span id="ch-amp">--</span>°C</div>
         <div class="cpill">Précip. cumulées : <span id="ch-rain">--</span> mm</div>
+        <button class="cpill" id="btn-toggle-forecast">👁️ Prévisions passées</button>
       </div>
       <div class="chart-wrap">
         <canvas id="mainChart"></canvas>
@@ -379,7 +388,6 @@ const DJU_BASE = 18;
 
 const DAYS_FR   = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
 const MONTHS_FR = ['janv','févr','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'];
-const MONTHS_FULL = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
 
 // ════════════════════════════════════════════════════════
 // ÉTAT
@@ -390,9 +398,10 @@ let lastData      = null;
 let lastMoy24     = null;
 let lastFullTime  = null;
 let chartData     = { past:[], future:[], precips:[] };
+let showPastForecast = false; // Etat du bouton d'affichage
 
 // ════════════════════════════════════════════════════════
-// TABS
+// TABS & EVENTS
 // ════════════════════════════════════════════════════════
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -401,6 +410,13 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.add('active');
     document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
   });
+});
+
+document.getElementById('btn-toggle-forecast').addEventListener('click', (e) => {
+  showPastForecast = !showPastForecast;
+  if(showPastForecast) e.target.classList.add('active');
+  else e.target.classList.remove('active');
+  drawChart();
 });
 
 // ════════════════════════════════════════════════════════
@@ -435,7 +451,7 @@ function calcDJU(tmins, tmaxs) {
 }
 
 // ════════════════════════════════════════════════════════
-// CHART (Avec système anti-collision)
+// CHART
 // ════════════════════════════════════════════════════════
 function drawChart() {
   const canvas = document.getElementById('mainChart');
@@ -471,7 +487,7 @@ function drawChart() {
   const tx = i => P.left + (i/(total-1))*cW;
   const ty = v => P.top  + cH - ((v-tMin)/(tMax-tMin))*cH;
 
-  // Zone prévision
+  // Zone prévision future
   if (nowI < total-1) {
     ctx.fillStyle = 'rgba(78,203,141,0.06)';
     ctx.fillRect(tx(nowI), P.top, tx(total-1)-tx(nowI), cH);
@@ -488,7 +504,7 @@ function drawChart() {
     ctx.fillText(v.toFixed(1)+'°', P.left-10, y+5);
   }
 
-  // NOW line & Heure actuelle blanche
+  // NOW line
   ctx.strokeStyle='rgba(245,162,91,0.5)'; ctx.lineWidth=2; ctx.setLineDash([6,4]);
   ctx.beginPath(); ctx.moveTo(tx(nowI),P.top); ctx.lineTo(tx(nowI),P.top+cH); ctx.stroke();
   ctx.setLineDash([]);
@@ -499,20 +515,30 @@ function drawChart() {
   ctx.textAlign='center';
   ctx.fillText(`MAINTENANT · ${currentDrawTime}`, tx(nowI), P.top-15);
 
-  // Précip bars
+  // Précip bars + labels au-dessus
   const barW = Math.max(6, cW/total*0.55);
   allP.forEach((p, i) => {
     if (!p || p<=0) return;
     const bh = cH*0.28*(p/pMax);
-    const g = ctx.createLinearGradient(0, P.top+cH-bh, 0, P.top+cH);
+    const barX = tx(i);
+    const barY = P.top+cH-bh;
+    
+    // Dessiner la barre
+    const g = ctx.createLinearGradient(0, barY, 0, P.top+cH);
     const isPast = i <= nowI;
     g.addColorStop(0, isPast ? 'rgba(106,176,212,0.6)' : 'rgba(106,176,212,0.35)');
     g.addColorStop(1, 'rgba(106,176,212,0.05)');
     ctx.fillStyle = g;
     ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(tx(i)-barW/2, P.top+cH-bh, barW, bh, 3);
-    else ctx.rect(tx(i)-barW/2, P.top+cH-bh, barW, bh);
+    if (ctx.roundRect) ctx.roundRect(barX-barW/2, barY, barW, bh, 3);
+    else ctx.rect(barX-barW/2, barY, barW, bh);
     ctx.fill();
+
+    // Ajouter le texte du volume de précipitation au-dessus
+    ctx.fillStyle = 'rgba(106,176,212,0.95)';
+    ctx.font = '11px "IBM Plex Mono"';
+    ctx.textAlign = 'center';
+    ctx.fillText(p.toFixed(1), barX, barY - 4);
   });
 
   // Gradient fill past
@@ -526,11 +552,28 @@ function drawChart() {
   ctx.lineTo(tx(nowI),P.top+cH); ctx.lineTo(tx(0),P.top+cH); ctx.closePath();
   ctx.fillStyle=gFillP; ctx.fill();
 
-  // Courbe past
+  // Courbe past réelle
   ctx.beginPath();
   ctx.moveTo(tx(0), ty(past[0].t));
   past.forEach((d,i)=>{ if(i>0){const cpx=(tx(i-1)+tx(i))/2; ctx.bezierCurveTo(cpx,ty(past[i-1].t),cpx,ty(d.t),tx(i),ty(d.t));} });
   ctx.strokeStyle='rgba(232,98,26,0.95)'; ctx.lineWidth=3.5; ctx.stroke();
+
+  // Courbe past (Prévision mémorisée)
+  if (showPastForecast) {
+    ctx.beginPath();
+    let first = true;
+    past.forEach((d, i) => {
+      if (d.memTemp !== null && d.memTemp !== undefined) {
+        if (first) { ctx.moveTo(tx(i), ty(d.memTemp)); first = false; }
+        else { ctx.lineTo(tx(i), ty(d.memTemp)); }
+      }
+    });
+    ctx.strokeStyle = 'rgba(78,203,141,0.5)';
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([4, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
 
   // Gradient fill future
   if (future.length) {
@@ -560,29 +603,23 @@ function drawChart() {
     ctx.fill();
     ctx.strokeStyle='rgba(10,14,20,0.8)'; ctx.lineWidth=2; ctx.stroke();
 
-    // On dessine le texte si c'est "MAINTENANT" ou si c'est un palier régulier ASSEZ LOIN de "MAINTENANT"
     let drawText = isNow || (i % step === 0 && Math.abs(i - nowI) > 2);
     
     if (drawText) {
       ctx.fillStyle = isNow ? '#ffffff' : 'rgba(212,220,232,0.85)';
       ctx.font = isNow ? 'bold 15px "IBM Plex Mono"' : '13px "IBM Plex Mono"';
       ctx.textAlign='center';
-      
-      // Empêche le texte de sortir en haut du canvas si la température est très haute
       let textY = ty(d.t)-14;
       if (textY < P.top + 10) textY = ty(d.t) + 20; 
-      
       ctx.fillText(d.t.toFixed(1)+'°', tx(i), textY);
     }
   });
 
-  // X axis labels (Avec anti-collision)
+  // X axis labels
   const xStep = Math.ceil(total/10);
   all.forEach((d,i) => {
     const isNow = i === nowI;
     const isLast = i === total - 1;
-    
-    // On dessine l'heure en bas si c'est MAINTENANT, le DERNIER point, ou un palier assez loin des deux autres
     let drawAxis = isNow || isLast || (i % xStep === 0 && Math.abs(i - nowI) > 3 && Math.abs(i - (total-1)) > 3);
     
     if (drawAxis) {
@@ -616,19 +653,14 @@ function renderCurrent(d) {
   const wind = c.wind_speed_10m;
   const hum  = c.relative_humidity_2m;
 
-  // Température Géante intégrée dans sa carte
-  document.getElementById('giant-temp').innerHTML = `${text.toFixed(1)}<span style="font-size: 36px; color: var(--accent); margin-left: 6px;">°C</span>`;
-
-  // KPI vent
+  document.getElementById('giant-temp').innerHTML = `${text.toFixed(1)}<span style="font-size: 24px; color: var(--accent); margin-left: 6px;">°C</span>`;
   document.getElementById('kpi-vent').innerHTML = `${Math.round(wind)}<span class="kpi-unit"> km/h</span>`;
   document.getElementById('kpi-hum').textContent = `Humidité : ${hum}% · Ressentie ${Math.round(c.apparent_temperature)}°C`;
 
-  // Footer current update
   const t = new Date().toLocaleTimeString('fr-FR');
   document.getElementById('footer').textContent =
-    `⚡ Current : ${t} · 📊 Horaire : ${lastFullTime||'—'} · Open-Meteo API · Paris 48.8566°N 2.3522°E`;
+    `⚡ Current : ${t} · Horaire : ${lastFullTime||'—'} · Open-Meteo API · Paris 48.8566°N 2.3522°E`;
     
-  // INJECTION DE LA TEMPÉRATURE ACTUELLE DANS LE GRAPHIQUE AVANT DE DESSINER
   if (chartData && chartData.past && chartData.past.length > 0) {
       chartData.past[chartData.past.length - 1].t = text; 
       drawChart();
@@ -642,6 +674,25 @@ function renderFull(d) {
   const now = new Date();
   const c   = d.current;
   const text = c.temperature_2m;
+
+  // -- GESTION DE LA MEMOIRE DES PREVISIONS (localStorage) --
+  let mem = JSON.parse(localStorage.getItem('saved_forecasts') || '{}');
+  let memUpdated = false;
+  d.hourly.time.forEach((tStr, i) => {
+    let dt = new Date(tStr);
+    // On enregistre uniquement les prévisions (futur) que nous n'avons pas encore vues
+    if (dt > now && mem[tStr] === undefined) {
+      mem[tStr] = d.hourly.temperature_2m[i];
+      memUpdated = true;
+    }
+  });
+  // Nettoyer les vieilles mémoires (plus de 48h) pour ne pas polluer le navigateur
+  const cutoff = new Date(now.getTime() - 48*3600*1000).toISOString();
+  Object.keys(mem).forEach(k => {
+    if (k < cutoff) { delete mem[k]; memUpdated = true; }
+  });
+  if (memUpdated) localStorage.setItem('saved_forecasts', JSON.stringify(mem));
+
 
   // Moy 24h / 48h
   const s24 = new Date(now.getTime()-24*3600*1000);
@@ -690,13 +741,22 @@ function renderFull(d) {
   const chartStart=new Date(now.getTime()-24*3600*1000);
   const chartEnd  =new Date(now.getTime()+24*3600*1000);
   const past=[], future=[], precips=[];
-  d.hourly.time.forEach((t,i)=>{
-    const dt=new Date(t);
+  
+  d.hourly.time.forEach((tStr, i)=>{
+    const dt=new Date(tStr);
     if(dt<chartStart||dt>chartEnd) return;
     const label=dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
     const pv=d.hourly.precipitation[i]||0;
-    if(dt<=now) { past.push({t:d.hourly.temperature_2m[i],label}); precips.push(pv); }
-    else        { future.push({t:d.hourly.temperature_2m[i],label}); precips.push(pv); }
+    
+    if(dt<=now) { 
+      let memTemp = mem[tStr] !== undefined ? mem[tStr] : null;
+      past.push({t:d.hourly.temperature_2m[i], label, memTemp}); 
+      precips.push(pv); 
+    }
+    else { 
+      future.push({t:d.hourly.temperature_2m[i], label}); 
+      precips.push(pv); 
+    }
   });
   chartData={past, future, precips};
 
@@ -708,7 +768,6 @@ function renderFull(d) {
     document.getElementById('ch-max').textContent=mx.toFixed(1);
     document.getElementById('ch-min').textContent=mn.toFixed(1);
     document.getElementById('ch-avg').textContent=avg.toFixed(1);
-    document.getElementById('ch-amp').textContent=(mx-mn).toFixed(1);
     document.getElementById('ch-rain').textContent=rain.toFixed(1);
   }
 
@@ -716,7 +775,7 @@ function renderFull(d) {
 
   lastFullTime = new Date().toLocaleTimeString('fr-FR');
   document.getElementById('footer').textContent =
-    `⚡ Current : ${lastFullTime} · 📊 Horaire : ${lastFullTime} · Open-Meteo API · Paris 48.8566°N 2.3522°E`;
+    `⚡ Current : ${lastFullTime} · Horaire : ${lastFullTime} · Open-Meteo API · Paris 48.8566°N 2.3522°E`;
 }
 
 // ════════════════════════════════════════════════════════
